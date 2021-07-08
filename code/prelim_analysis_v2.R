@@ -253,6 +253,9 @@ ggplot(aframe_tmp[!is.na(aframe_tmp$Genus),], aes(PC2, Genus, color = Phylum)) +
   xlab("PC2 loading") +
   theme_bw()
 
+ok_features <- intersect(rownames(normalized), names(which(TAX@.Data[, "Genus"] == "g__Streptococcus")))
+boxplot(split(colMeans(normalized[ok_features,]), tmp$comments),
+        ylab = "Streptococcus abundance")
 
 # Run diff expr
 library(DESeq2)
