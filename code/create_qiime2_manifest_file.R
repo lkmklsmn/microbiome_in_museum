@@ -14,4 +14,4 @@ read_2 <- files[seq(2, length(files), by = 2)]
 manifest <- data.frame(sample_id = sample,forward_absolute_filepath = read_1, reverse_absolute_filepath = read_2)
 write.table(manifest, row.names = F, "qiime/manifest.txt", sep = "\t", quote = F)
                        
-# Fix column names by switching sample_id to sample-id using vim or other editor
+# Fix all column names by switching, for example, sample_id to sample-id using vim or other editor
