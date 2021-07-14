@@ -21,7 +21,7 @@ qiime cutadapt trim-paired \
 
 qiime demux summarize \
 --i-data primer-trimmed-VL_16S_PE.qza \
---o-visualization primer-trimmed-VL_16S_PE.qzv \
+--o-visualization primer-trimmed-VL_16S_PE.qzv
 
 qiime dada2 denoise-paired \
 --p-n-threads 8 \
