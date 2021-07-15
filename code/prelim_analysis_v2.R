@@ -2,8 +2,10 @@
 library(qiime2R)
 library(phyloseq)
 library(readxl)
+library(pheatmap)
 
-setwd("/Users/lukas/OneDrive/Documents/GitHub/lounsbery/")
+# Set working dir ####
+setwd("/Users/lukas.simon/Documents/GitHub/lounsbery/")
 
 # Define some functions ####
 phyloseq_miko <- function (...) 
@@ -56,6 +58,7 @@ phyloseq_miko <- function (...)
 meta <- read.delim("sample_sheet.tsv")
 meta <- meta[!is.na(meta$sample.id),]
 info <- sample_data(meta)
+sample_names(info) <- meta$sample.id
 
 # Load OTU counts ####
 table <- read_qza("data/table.qza")
@@ -83,16 +86,16 @@ TAX <- tax_table(tmp)
 p <- phyloseq_miko(OTU, TAX, info)
 
 # Create UNIFRAC plot ####
-ok = genefilter_sample(p, filterfun_sample(function(x) x > 5), A=0.05*nsamples(p))
-GP1 = prune_taxa(ok, p)
+ok <- genefilter_sample(p, filterfun_sample(function(x) x > 5), A=0.05*nsamples(p))
+GP1 <- prune_taxa(ok, p)
 
-ok = is.na(TAX[,"Phylum"])
-GP1 = prune_taxa(ok, GP1)
+ok <- is.na(TAX[,"Phylum"])
+GP1 <- prune_taxa(ok, GP1)
 
-ok = names(which(colSums(OTU) > 100))
-GP1 = prune_samples(ok, GP1)
+ok <- names(which(colSums(OTU) > 100))
+GP1 <- prune_samples(ok, GP1)
 
-GP1 = transform_sample_counts(GP1, function(x) 1E6 * x/sum(x))
+GP1 <- transform_sample_counts(GP1, function(x) 1E6 * x/sum(x))
 
 GP.ord <- ordinate(physeq = GP1, method = "MDS")
 plot_ordination(GP1, GP.ord, type = "taxa", color = "Phylum", title = "taxa")
@@ -124,36 +127,46 @@ counts <- counts[which(zeros > 1),]
 normalized <- t(t(counts)/colSums(counts))
 normalized <- sqrt(normalized)
 
-#library(edgeR)
-#normalized <- log(cpm(counts) + 1)
-
-#normalized <- t(t(counts + 1)/colSums(counts))*1e6
-#normalized <- log(normalized)
-
 pca <- prcomp(t(normalized))#, scale. = T)
 aframe <- data.frame(meta, total = colSums(counts), pca$x[, 1:10])
 
 mds <- cmdscale(dist(t(normalized)), k = 2)
 aframe <- data.frame(meta, total = colSums(counts), pca$x[, 1:10], mds)
 
-ggplot(aframe, aes(X1, X2, color = Institution, shape = Institution, label = sample.id)) +
+p1 <- ggplot(aframe, aes(X1, X2, color = institution, shape = institution, label = sample.id)) +
   geom_point() + geom_label() +
+  ggtitle("MDS") +
+  xlab("MDS1") + ylab("MDS2") +
   theme_classic()
 
-ggplot(aframe, aes(X1, X2, color = log10(total), shape = Institution)) +
+p2 <- ggplot(aframe, aes(X1, X2, color = log10(total), shape = institution)) +
   geom_point() +
+  ggtitle("MDS") +
+  xlab("MDS1") + ylab("MDS2") +
   theme_classic()
 
-ggplot(aframe, aes(PC1, PC2, color = log10(total), shape = Institution)) +
-  geom_point() +
-  theme_classic()
+grid.arrange(p1, p2, ncol = 2)
 
-ggplot(aframe, aes(PC1, PC2, color = Institution, shape = Institution, label = sample.id)) +
+
+p1 <- ggplot(aframe, aes(PC1, PC2, color = institution, shape = institution, label = sample.id)) +
   geom_point() + geom_label() +
+  ggtitle("PCA") +
+  xlab(paste(signif(pca$sdev[1]/sum(pca$sdev)*100, 2), "%")) +
+  ylab(paste(signif(pca$sdev[2]/sum(pca$sdev)*100, 2), "%")) +
   theme_classic()
 
-# Run positive unlabeled learning ####
-outcome <- meta$Institution == "Control"
+p2 <- ggplot(aframe, aes(PC1, PC2, color = log10(total), shape = institution)) +
+  geom_point() +
+  ggtitle("PCA") +
+  xlab(paste(signif(pca$sdev[1]/sum(pca$sdev)*100, 2), "%")) +
+  ylab(paste(signif(pca$sdev[2]/sum(pca$sdev)*100, 2), "%")) +
+  theme_classic()
+
+grid.arrange(p1, p2, ncol = 2)
+
+
+# Run positive-unlabeled learning ####
+outcome <- meta$collection == "Control"
 positives <- which(outcome)
 unlabeled <- which(!outcome)
 predictions <- do.call(rbind, lapply(1:100, function(x){
@@ -171,13 +184,13 @@ avg_pred <- apply(predictions, 2, function(x) mean(x, na.rm = T))
 meta$avg_pred <- avg_pred
 aframe <- data.frame(avg_pred, total = colSums(counts), meta)
 
-p1 <- ggplot(aframe, aes(avg_pred, log10(total), color = Institution == "Control", shape = Institution)) +
+p1 <- ggplot(aframe, aes(avg_pred, log10(total), color = (collection == "Control"), shape = institution)) +
   geom_point() +
   ylab("Total count [log10]") + xlab("Average prediction") +
   ggtitle("Positive-unlabeled learning") +
   theme_bw()
 
-p2 <- ggplot(aframe, aes(avg_pred, log10(total), color = spot == "Air", shape = Institution)) +
+p2 <- ggplot(aframe, aes(avg_pred, log10(total), color = spot == "Air", shape = institution)) +
   geom_point() +
   ylab("Total count [log10]") + xlab("Average prediction") +
   ggtitle("Positive-unlabeled learning") +
@@ -185,10 +198,78 @@ p2 <- ggplot(aframe, aes(avg_pred, log10(total), color = spot == "Air", shape = 
 
 gridExtra::grid.arrange(p1, p2, ncol = 2)
 
+# Run positive-unlabeled learning ####
+outcome <- meta$collection == "Control"  
+leave_one_out_predictions <- unlist(lapply(which(outcome), function(r){
+  outcome <- meta$collection == "Control"  
+  outcome[r] <- FALSE
+  positives <- which(outcome)
+  unlabeled <- which(!outcome)
+  predictions <- do.call(rbind, lapply(1:100, function(x){
+    train <- c(positives, sample(unlabeled, length(positives)))
+    #afit <- lda(x = t(normalized[, train]), grouping = outcome[train])  
+    aframe <- data.frame(outcome = factor(outcome), t(normalized))
+    rf <- randomForest::randomForest(outcome ~., data = aframe[train, ])
+    preds <- predict(rf, aframe)
+    preds <- as.numeric(preds)
+    preds[setdiff(train, positives)] <- NA
+    preds
+  }))
+  
+  avg_pred <- apply(predictions, 2, function(x) mean(x, na.rm = T))
+  avg_pred[r]
+}))
+names(leave_one_out_predictions) <- meta$sample.id[meta$collection == "Control"]
+
+tmp <- data.frame(avg_pred = leave_one_out_predictions,
+                  total = aframe$total[match(names(leave_one_out_predictions), aframe$sample.id)])
+ggplot(aframe, aes(avg_pred, log10(total))) +
+  geom_point() +
+  ylab("Total count [log10]") + xlab("Average prediction") +
+  ggtitle("Positive-unlabeled learning") +
+  theme_bw() + geom_point(data = tmp, aes(avg_pred, log10(total), color = "black", shape = "black"))
+
+
+# Run contrasts asked by Stefan ####
+tmp <- meta[meta$institution == "SPK",]
+ok_samples <- tmp$sample.id
+counts_tmp <- counts[, ok_samples]
+zeros <- apply(counts_tmp, 1, function(x) sum(x > 0))
+counts_tmp <- counts_tmp[which(zeros > 1),]
+
+ok_samples <- ok_samples[colSums(counts_tmp) > 100]
+counts_tmp <- counts_tmp[, ok_samples]
+normalized <- t(t(counts_tmp)/colSums(counts_tmp))
+normalized <- sqrt(normalized)
+
+mds <- cmdscale(dist(t(normalized)), k = 2)
+aframe_tmp <- data.frame(meta[match(ok_samples, meta$sample.id), ], total = colSums(counts_tmp), mds)
+
+p1 <- ggplot(aframe_tmp, aes(X1, X2, color = spot == "Air")) +
+  geom_point() +
+  ggtitle("MDS - SPK") +
+  theme_classic()
+
+p2 <- ggplot(aframe_tmp, aes(X1, X2, color = material)) +
+  geom_point() +
+  ggtitle("MDS - SPK") +
+  theme_classic()
+
+p3 <- ggplot(aframe_tmp, aes(X1, X2, color = avg_pred)) +
+  geom_point() +
+  ggtitle("MDS - SPK") +
+  theme_classic()
+
+p4 <- ggplot(aframe_tmp, aes(X1, X2, color = object)) +
+  geom_point() +
+  ggtitle("MDS - SPK") +
+  theme_classic()
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
 # Run analysis on good lion samples ####
-ok <- which(aframe$avg_pred < 1.5)
-tmp <- meta[ok,]
-ok_samples <- tmp$sample.id[tmp$Object %in% c("Lion left", "Lion right")]
+tmp <- meta
+ok_samples <- tmp$sample.id[grep("Lion", tmp$object)]
 counts_tmp <- counts[, ok_samples]
 zeros <- apply(counts_tmp, 1, function(x) sum(x > 0))
 counts_tmp <- counts_tmp[which(zeros > 1),]
@@ -199,13 +280,29 @@ normalized <- sqrt(normalized)
 mds <- cmdscale(dist(t(normalized)), k = 2)
 aframe_tmp <- data.frame(meta[match(ok_samples, meta$sample.id), ], total = colSums(counts_tmp), mds)
 
-ggplot(aframe_tmp, aes(X1, X2, color = touched, shape = Object)) +
+ggplot(aframe_tmp, aes(X1, X2, color = spot, shape = object)) +
   geom_point() +
   ggtitle("MDS - Lion") +
   theme_classic()
 
+pca <- prcomp(t(normalized))#, scale. = T)
+aframe_tmp <- data.frame(meta[match(ok_samples, meta$sample.id), ], total = colSums(counts_tmp), pca$x[, 1:4])
+
+p1 <- ggplot(aframe_tmp, aes(PC1, PC2, color = spot, shape = object)) +
+  geom_point() +
+  ggtitle("MDS - Lion") +
+  theme_classic()
+
+p2 <- ggplot(aframe_tmp, aes(PC1, PC2, color = avg_pred, shape = object)) +
+  geom_point() +
+  ggtitle("MDS - Lion") +
+  theme_classic()
+
+grid.arrange(p1, p2, ncol = 2)
+
 # Hellenistic Haal ####
-ok_samples <- tmp$sample.id[tmp$Object %in% c("Hellenistic Haal")]
+tmp <- meta
+ok_samples <- tmp$sample.id[tmp$object %in% c("Zeus Sosipolis Tempel, Hellenistic Hall")]
 counts_tmp <- counts[, ok_samples]
 zeros <- apply(counts_tmp, 1, function(x) sum(x > 0))
 counts_tmp <- counts_tmp[which(zeros > 1),]
@@ -216,13 +313,40 @@ normalized <- sqrt(normalized)
 mds <- cmdscale(dist(t(normalized)), k = 2)
 aframe_tmp <- data.frame(meta[match(ok_samples, meta$sample.id), ], total = colSums(counts_tmp), mds)
 
-ggplot(aframe_tmp, aes(X1, X2, label = spot)) +
-  geom_point() + ggrepel::geom_label_repel() +
-  ggtitle("MDS - Hellenistic Haal") +
+ggplot(aframe_tmp, aes(X1, X2, color = comments, shape = spot)) +
+  geom_point() + 
+  ggtitle("MDS - Zeus Sosipolis Tempel, Hellenistic Hall") +
   theme_classic()
 
+pvals <- apply(counts_tmp, 1, function(x){
+  matr <- data.frame(counts = x, aframe_tmp)
+  library(MASS)
+  afit <- aov(log((counts + 1)/total) ~ spot, data = matr)
+  summary(afit)[[1]][1, 5]
+})
+res <- data.frame(TAX@.Data[names(pvals),], pvals)
+res <- res[sort.list(res$pvals),]
+
+sig <- p.adjust(pvals, method = "BH")
+sig <- names(which(sig < 0.1))
+
+feature <- "4213701baa40ae67b3ebf50a58948e38"
+tmp <- data.frame(abundance = normalized[feature,], variable = aframe_tmp$spot)
+ggplot(tmp, aes(variable, abundance, color = variable)) +
+  geom_boxplot() +
+  geom_point() +
+  ylab("Sqrt proportion") +
+  ggtitle(paste(TAX@.Data[feature, -1], collapse = ";")) +
+  theme_bw() +
+  theme(plot.title = element_text(size = 10))
+
+nom <- unlist(lapply(sig, function(x) paste(TAX@.Data[x, -1], collapse = ";")))
+anno_col <- data.frame(object = aframe_tmp$spot)
+rownames(anno_col) <- colnames(normalized)
+pheatmap(normalized[sig,], labels_row = nom, annotation_col = anno_col)
+
 # Tendaguru ####
-tmp <- meta[which(meta$Object == "Tendaguru"), ]
+tmp <- meta[which(meta$object == "Tendaguru"), ]
 ok_samples <- tmp$sample.id
 counts_tmp <- counts[, ok_samples]
 zeros <- apply(counts_tmp, 1, function(x) sum(x > 0))
@@ -235,15 +359,29 @@ mds <- cmdscale(dist(t(normalized)), k = 2)
 pca <- prcomp(t(normalized), scale. = T)
 aframe_tmp <- data.frame(meta[match(ok_samples, meta$sample.id), ], total = colSums(counts_tmp), mds, pca$x)
 
-ggplot(aframe_tmp, aes(X1, X2, color = comments)) +
+p1 <- ggplot(aframe_tmp, aes(X1, X2, color = comments)) +
   geom_point() +
   ggtitle("MDS - Tendaguru") +
   theme_classic()
 
-ggplot(aframe_tmp, aes(PC1, PC2, color = comments)) +
+p2 <- ggplot(aframe_tmp, aes(X1, X2, color = avg_pred)) +
+  geom_point() +
+  ggtitle("MDS - Tendaguru") +
+  theme_classic()
+
+grid.arrange(p1, p2, ncol = 2)
+
+p1 <- ggplot(aframe_tmp, aes(PC1, PC2, color = comments)) +
+  geom_point() +
+  ggtitle("MDS - Tendaguru") +
+  theme_classic()
+
+p2 <- ggplot(aframe_tmp, aes(PC1, PC2, color = avg_pred)) +
   geom_point() +
   ggtitle("PCA - Tendaguru") +
   theme_classic()
+
+grid.arrange(p1, p2, ncol = 2)
 
 aframe_tmp <- data.frame(PC2 = pca$rotation[,2], TAX@.Data[rownames(pca$rotation), ])
 asplit <- split(aframe_tmp$PC2, aframe_tmp$Genus)
