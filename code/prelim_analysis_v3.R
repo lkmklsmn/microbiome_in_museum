@@ -3,6 +3,7 @@ library(qiime2R)
 library(phyloseq)
 library(readxl)
 library(ggplot2)
+library(pheatmap)
 
 setwd("/Users/lukas/OneDrive/Documents/GitHub/lounsbery/")
 
@@ -306,8 +307,9 @@ boxplot(split(colMeans(normalized[ok_features,]), tmp$comments),
         ylab = "Staphylococcus abundance")
 
 
-# Combine into one analysis #
+# Combine into one analysis ####
 tmp <- meta[meta$institution == "MfN",]
+tmp <- tmp[tmp$comments != "reference",]
 ok_samples <- tmp$sample.id
 counts_tmp <- counts[, ok_samples]
 zeros <- apply(counts_tmp, 1, function(x) sum(x > 0))
@@ -322,13 +324,69 @@ mds <- cmdscale(dist(t(normalized)), k = 2)
 pca <- prcomp(t(normalized), scale. = T)
 aframe_tmp <- data.frame(meta[match(colnames(counts_tmp), meta$sample.id), ], total = colSums(counts_tmp), mds, pca$x)
 
-aframe_tmp$touched <- "no"
-aframe_tmp$touched[grep("touch", aframe_tmp$comments)] <- "yes"
-ggplot(aframe_tmp, aes(X1, X2, color = touched, shape = object)) +
+aframe_tmp$touched <- "yes"
+aframe_tmp$touched[grep("untouched", aframe_tmp$comments)] <- "no"
+ggplot(aframe_tmp, aes(X1, X2, color = touched, shape = collection)) +
   geom_point() +
   ggtitle("MDS - Mollucs") +
   xlab("MDS1") + ylab("MDS2") +
   theme_classic()
+ggsave("")
+
+ggplot(aframe_tmp, aes(PC1, PC2, color = touched, shape = object)) +
+  geom_point() +
+  ggtitle("MDS - Mollucs") +
+  theme_classic()
+
+res <- t(apply(normalized, 1, function(x){
+  aframe <- data.frame(expr = x, aframe_tmp[, c("touched", "object", "collection")])
+  afit <- try(summary(aov(expr ~ collection + touched, data = aframe)))
+  if(class(afit) == "try-error") return(c(NA, NA))
+  as.numeric(afit[[1]][2, 4:5])
+}))
+colnames(res) <- c("F_value", "p_value")
+res <- data.frame(res, TAX@.Data[rownames(res),])
+res <- res[sort.list(res[, 2]),]
+
+anno_col <- data.frame(aframe_tmp[, c("touched", "collection", "object", "avg_pred")])
+rownames(anno_col) <- colnames(normalized)
+
+anno_row <- data.frame(TAX@.Data[rownames(normalized),])
+rownames(anno_row) <- rownames(normalized)
+
+sig <- rownames(res)[p.adjust(res[,2], method = "BH") < 0.1]
+tmp <- normalized[sig, anno_col$collection == "Mollucs"]
+
+pheatmap(normalized[sig, order(anno_col$collection, anno_col$touched, anno_col$object)],
+         #scale = "row",
+         cluster_cols = F,
+         show_rownames = F, show_colnames = F,
+         gaps_col = 10,
+         annotation_col = anno_col,
+         color = colorRampPalette(c("grey", "red"))(101),
+         annotation_row = anno_row[, c("Phylum", "Genus")])
+
+plot_feature <- function(feature){
+  aframe <- data.frame(expr = normalized[feature, ], aframe_tmp[, c("touched", "object", "collection")])
+  nom <- TAX@.Data[feature, -1]
+  nom <- paste(nom, collapse = ",")
+  ggplot(aframe, aes(touched, expr, color = touched)) +
+    facet_wrap(~ collection) +
+    geom_boxplot() + geom_point() +
+    ggtitle(nom) +
+    ylab("Abundance") +
+    theme_bw()
+}
+plot_feature("0664a0c96e567c98809225119f8fad99")
+
+tmp <- data.frame(feature = colSums(counts[sig,]), meta)
+tmp$touched <- "no"
+tmp$touched[tmp$comments == "touched"] <- "yes"
+ggplot(tmp[grep("Lion", tmp$object),], aes(touched, log10(feature + 1), color = touched)) +
+  geom_boxplot() + geom_point() +
+  ggtitle("Gate Lion") +
+  ylab("'Touch' signature") +
+  theme_bw()
 
 # SPK ####
 tmp <- meta[meta$institution == "SPK",]
