@@ -328,10 +328,10 @@ aframe_tmp$touched <- "yes"
 aframe_tmp$touched[grep("untouched", aframe_tmp$comments)] <- "no"
 ggplot(aframe_tmp, aes(X1, X2, color = touched, shape = collection)) +
   geom_point() +
-  ggtitle("MDS - Mollucs") +
+  ggtitle("MDS - MfN") +
   xlab("MDS1") + ylab("MDS2") +
   theme_classic()
-ggsave("")
+ggsave("figs/MDS_plot_MfN.pdf", height = 4, width = 5)
 
 ggplot(aframe_tmp, aes(PC1, PC2, color = touched, shape = object)) +
   geom_point() +
@@ -378,15 +378,18 @@ plot_feature <- function(feature){
     theme_bw()
 }
 plot_feature("0664a0c96e567c98809225119f8fad99")
+ggsave("figs/MfN_Propionibacterium_touch.pdf", height = 6, width = 4)
 
 tmp <- data.frame(feature = colSums(counts[sig,]), meta)
 tmp$touched <- "no"
 tmp$touched[tmp$comments == "touched"] <- "yes"
 ggplot(tmp[grep("Lion", tmp$object),], aes(touched, log10(feature + 1), color = touched)) +
+  facet_wrap(~ object) +
   geom_boxplot() + geom_point() +
   ggtitle("Gate Lion") +
   ylab("'Touch' signature") +
   theme_bw()
+ggsave("figs/Touch_signature_lion.pdf", height = 5, width = 5)
 
 # SPK ####
 tmp <- meta[meta$institution == "SPK",]
@@ -404,7 +407,19 @@ mds <- cmdscale(dist(t(normalized)), k = 2)
 pca <- prcomp(t(normalized), scale. = T)
 aframe_tmp <- data.frame(meta[match(colnames(counts_tmp), meta$sample.id), ], total = colSums(counts_tmp), mds, pca$x)
 
-ggplot(aframe_tmp, aes(X1, X2, color = type_of_room, shape = type_of_room)) +
+ggplot(aframe_tmp, aes(X1, X2, color = type_of_room, shape = collection)) +
+  geom_point() +
+  ggtitle("MDS - SPK") +
+  xlab("MDS1") + ylab("MDS2") +
+  theme_classic()
+
+ggplot(aframe_tmp, aes(X1, X2, color = object, shape = type_of_room)) +
+  geom_point() +
+  ggtitle("MDS - SPK") +
+  xlab("MDS1") + ylab("MDS2") +
+  theme_classic()
+
+ggplot(aframe_tmp, aes(X1, X2, color = material, shape = type_of_room)) +
   geom_point() +
   ggtitle("MDS - SPK") +
   xlab("MDS1") + ylab("MDS2") +
@@ -414,6 +429,14 @@ ggplot(aframe_tmp, aes(PC1, PC2, color = type_of_room, shape = material)) +
   geom_point() +
   ggtitle("PCA - SPK") +
   theme_classic()
+
+feature <- colSums(normalized[intersect(sig, rownames(normalized)),])
+aframe_tmp <- data.frame(feature, aframe_tmp)
+ggplot(aframe_tmp, aes(object, feature, color = object)) +
+  geom_boxplot() + geom_point() +
+  ylab("'Touch' signature") +
+  ggtitle("SPK") +
+  theme_bw()
 
 # SPK Lions ####
 tmp <- meta[grep("Lion", meta$object),]
@@ -509,11 +532,25 @@ ggplot(aframe_tmp, aes(X1, X2, color = height, shape = object)) +
   ggtitle("MDS - SPK") +
   theme_classic()
 
-ggplot(aframe_tmp, aes(X1, X2, color = avg_pred, shape = object)) +
+ggplot(aframe_tmp, aes(PC1, PC2, color = height, shape = object)) +
   geom_point() +
   ggtitle("MDS - SPK") +
   theme_classic()
 
+feature <- colSums(normalized[intersect(sig, rownames(normalized)),])
+aframe_tmp <- data.frame(feature, aframe_tmp)
+aframe_tmp$height <- factor(aframe_tmp$height, levels = c("low", "middle", "high", "very high"))  
+ggplot(aframe_tmp, aes(height, feature, color = height)) +
+  geom_boxplot() + geom_point() +
+  ylab("'Touch' signature") +
+  ggtitle("Procession Street, left side") +
+  theme_bw()
+
+ggplot(aframe_tmp, aes(height, avg_pred, color = height)) +
+  geom_boxplot() + geom_point() +
+  ylab("Prediction of control") +
+  ggtitle("Procession Street, left side") +
+  theme_bw()
 
 # Procession Street ####
 tmp <- meta[meta$object == "Ishtar Gate, right side",]
@@ -531,19 +568,31 @@ mds <- cmdscale(dist(t(normalized)), k = 2)
 pca <- prcomp(t(normalized), scale. = T)
 aframe_tmp <- data.frame(meta[match(colnames(counts_tmp), meta$sample.id), ], total = colSums(counts_tmp), mds, pca$x)
 
-ggplot(aframe_tmp, aes(X1, X2, color = spot, shape = object)) +
+aframe_tmp$height <- c("low", "low", "middle", "middle", "high", "high", "very high")
+ggplot(aframe_tmp, aes(X1, X2, color = height, shape = object)) +
   geom_point() +
   ggtitle("MDS - SPK") +
   theme_classic()
 
-ggplot(aframe_tmp, aes(PC1, PC2, color = spot, shape = object)) +
+ggplot(aframe_tmp, aes(PC1, PC2, color = height, shape = object)) +
   geom_point() +
   ggtitle("PCA - SPK") +
   theme_classic()
 
+feature <- colSums(normalized[intersect(sig, rownames(normalized)),])
+aframe_tmp <- data.frame(feature, aframe_tmp)
+aframe_tmp$height <- factor(aframe_tmp$height, levels = c("low", "middle", "high", "very high"))  
+ggplot(aframe_tmp, aes(height, feature, color = height)) +
+  geom_boxplot() + geom_point() +
+  ylab("'Touch' signature") +
+  ggtitle("Ishtar gate, right side") +
+  theme_bw()
+
+# Combined analysis ####
+
 
 # Zeus Sosipolis Tempel, Hellenistic Hall ####
-tmp <- meta[meta$object == "Zeus Sosipolis Tempel, Hellenistic Hall",]
+tmp <- meta[meta$object %in% c("Zeus Sosipolis Tempel, Hellenistic Hall", "Hellenistic Hall (column on the right)"),]
 ok_samples <- tmp$sample.id
 counts_tmp <- counts[, ok_samples]
 zeros <- apply(counts_tmp, 1, function(x) sum(x > 0))
@@ -558,10 +607,23 @@ mds <- cmdscale(dist(t(normalized)), k = 2)
 pca <- prcomp(t(normalized), scale. = T)
 aframe_tmp <- data.frame(meta[match(colnames(counts_tmp), meta$sample.id), ], total = colSums(counts_tmp), mds, pca$x)
 
-ggplot(aframe_tmp, aes(X1, X2, color = spot, shape = object)) +
+ggplot(aframe_tmp, aes(X1, X2, color = comments)) +
   geom_point() +
   ggtitle("MDS - SPK") +
   theme_classic()
+
+ggplot(aframe_tmp, aes(PC1, PC2, color = comments)) +
+  geom_point() +
+  ggtitle("MDS - SPK") +
+  theme_classic()
+
+feature <- colSums(normalized[intersect(sig, rownames(normalized)),])
+aframe_tmp <- data.frame(feature, aframe_tmp)
+ggplot(aframe_tmp, aes(comments, feature, color = comments)) +
+  geom_boxplot() + geom_point() +
+  ylab("'Touch' signature") +
+  ggtitle("Hellenistic Hall") +
+  theme_bw()
 
 # Create some plots ####
 Down_Sample_Matrix <- function (expr_mat)
