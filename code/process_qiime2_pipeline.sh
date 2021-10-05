@@ -35,8 +35,15 @@ qiime feature-table summarize \
 --i-table DADA2_denoising_output/table.qza \
 --o-visualization DADA2_denoising_output/table.qzv
 
+#qiime feature-classifier classify-sklearn \
+#--i-classifier ../genomes/rlappan/SILVA/classifier_16S_V3-V4.qza \
+#--i-reads DADA2_denoising_output/representative_sequences.qza \
+#--o-classification classified_rep_seqs.qza
+
+# Download classifier
+# wget -O "gg-13-8-99-515-806-nb-classifier.qza" "https://data.qiime2.org/2018.2/common/gg-13-8-99-515-806-nb-classifier.qza"
 qiime feature-classifier classify-sklearn \
---i-classifier ../genomes/rlappan/SILVA/classifier_16S_V3-V4.qza \
+--i-classifier classifiers/gg-13-8-99-515-806-nb-classifier.qza \
 --i-reads DADA2_denoising_output/representative_sequences.qza \
 --o-classification classified_rep_seqs.qza
 
