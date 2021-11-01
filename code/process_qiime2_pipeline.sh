@@ -42,6 +42,7 @@ qiime feature-table summarize \
 
 # Download classifier
 # wget -O "gg-13-8-99-515-806-nb-classifier.qza" "https://data.qiime2.org/2018.2/common/gg-13-8-99-515-806-nb-classifier.qza"
+# https://github.com/Jiung-Wen/q2-silva-V3V4classifier
 qiime feature-classifier classify-sklearn \
 --i-classifier classifiers/gg-13-8-99-515-806-nb-classifier.qza \
 --i-reads DADA2_denoising_output/representative_sequences.qza \
