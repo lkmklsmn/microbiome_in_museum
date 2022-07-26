@@ -39,13 +39,16 @@ num_detected <- apply(counts, 2, function(x) sum(x > 0))
 meta <- data.frame(meta[match(colnames(counts), meta[[1]]), ])
 
 aframe <- data.frame(total, num_detected, meta)
+aframe$group <- paste(aframe$Institution, aframe$Sequencing.run)
+aframe$group[aframe$group == "DSMZ NA"] <- "Controls"
 ggplot(aframe, aes(total + 1, num_detected,
                    label = sample.id,
-                   color = interaction(Sequencing.run, Institution))) +
-  geom_point() + geom_label() +
+                   color = group)) +
+  geom_point() + geom_label(size = 2) +
   scale_x_continuous(trans = "log10") +
-  ylab("Number of feature detected") +
-  xlab("Total number of reads") +
+  scale_color_manual(values = c("black", "blue", "darkblue", "red", "darkred")) +
+  labs(title = "Quality control", subtitle = "2nd sequencing run has less reads",
+       y = "Number of feature detected", x = "Total number of reads") +
   theme_bw()
 
 zeros <- apply(counts, 1, function(x) sum(x > 0))
@@ -147,8 +150,6 @@ aframe_tmp <- data.frame(rbind(pca$x[, 1:5], preds[, 1:5]),
 ggplot(aframe_tmp, aes(PC1, PC2, color = Comments, shape = Sequencing.run)) +
   geom_point() +
   labs(title = "PCA - Tendaguru", subtitle = "2nd sequencing run does not separate touched from untouched") +
-  xlab(paste("PC1", var_explained[1], "%")) + 
-  ylab(paste("PC2", var_explained[2], "%")) + 
   scale_color_manual(values = c("red", "lightgrey", "grey","darkgrey", "darkred")) +
   theme_classic()
 
@@ -156,8 +157,6 @@ ggplot(aframe_tmp, aes(PC1, PC2, color = Comments, shape = Sequencing.run)) +
   facet_wrap(~ Sequencing.run, scales ="free") +
   geom_point() +
   labs(title = "PCA - Tendaguru", subtitle = "2nd sequencing run does not separate touched from untouched") +
-  xlab(paste("PC1", var_explained[1], "%")) + 
-  ylab(paste("PC2", var_explained[2], "%")) + 
   scale_color_manual(values = c("red", "lightgrey", "grey","darkgrey", "darkred")) +
   geom_vline(xintercept = 0, linetype = 'dashed') +
   geom_hline(yintercept = 0, linetype = 'dashed') +
