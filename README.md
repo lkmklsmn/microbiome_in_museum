@@ -5,5 +5,5 @@ The microbiome represents the border between humans and their environment. Howev
 
 ### Data
 - The [metadata sheet](https://github.com/lkmklsmn/lounsbery/blob/main/data/sample_sheet_data_science%20-%20Tabelle1.tsv) was downloaded from [here](https://docs.google.com/spreadsheets/d/1JjJi1Qhh_Y7oP3SJF-D0qrZ5g8ICtIiVOHoJu9dP-SI/edit#gid=1968824087).
-- Raw sequencing data was processed as described in this code.
+- Raw sequencing data was processed as described in this [script](https://github.com/lkmklsmn/lounsbery/blob/main/code/processing/Touched_objects_processing.html).
 - Processed count matrices can be found [here](https://github.com/lkmklsmn/lounsbery/blob/main/data/sample_sheet_data_science%20-%20Tabelle1.tsv). 
