@@ -1,5 +1,4 @@
 
-*.qza
 .Rhistory
 *.pptx
 *.mp4
@@ -9,4 +8,3 @@ misc/*
 *.jpg
 figs/*
 *.pdf
-*.xlsx
