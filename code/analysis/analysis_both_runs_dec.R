@@ -5,16 +5,14 @@ library(readxl)
 library(ggplot2)
 library(pheatmap)
 library(gridExtra)
-#library(microbiome)
-#library(colorspace)
 
 # Load sample sheet ####
-meta <- readxl::read_excel("/Users/lukas/OneDrive/Miko/Lounsbery/data/both_runs_combined/sample_sheet_data_science.xlsx", sheet = "Tabelle1")
+meta <- read_excel("../../data/sample_sheet_data_science.xlsx", sheet = "Tabelle1")
 meta <- data.frame(meta)
 rownames(meta) <- meta$sample.id
 
 # Load taxonomy info ####
-classified <- read_qza("/Users/lukas/OneDrive/Miko/Lounsbery/data/both_runs_combined/taxonomy.qza")
+classified <- read_qza("../../data/taxonomy.qza")
 tmp <- classified$data
 tmp <- as.character(tmp$Taxon)
 tmp <- do.call(rbind, lapply(tmp, function(x){
@@ -30,7 +28,7 @@ tmp <- as.matrix(tmp)
 TAX <- tax_table(tmp)
 
 # Load ASV count table ####
-counts <- read_qza("/Users/lukas/OneDrive/Miko/Lounsbery/data/both_runs_combined/table.qza")$data
+counts <- read_qza("../../data/table.qza")$data
 counts <- counts[which(apply(counts, 1, function(x) sum(x > 0)) >= 2), ]
 tax_info <- TAX@.Data[rownames(counts), ] 
 
