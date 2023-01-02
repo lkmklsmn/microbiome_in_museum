@@ -41,6 +41,7 @@ meta$num_detected <- apply(counts, 2, function(x) sum(x > 0))
 
 # Plot total counts ####
 aframe <- data.frame(meta)
+aframe$Institution[aframe$Collection == "RF"] <- "RF"
 aframe$group <- paste(aframe$Institution)
 aframe$group[aframe$group == "DSMZ"] <- "Controls"
 
@@ -49,16 +50,15 @@ aframe$group[aframe$Sampling.number %in% c("Pergamonmuseum  Negativprobe",
                                            "2VAM NC Werkstatt")] <- "Controls"
 
 ggplot(aframe, aes(total_reads + 1, num_detected,
-                   color = group,
-                   shape = Institution)) +
+                   color = group)) +
   geom_hline(yintercept = 100, linetype = "dashed", color = "grey") +
   geom_vline(xintercept = 500, linetype = "dashed", color = "grey") +
   geom_point() + 
   scale_x_continuous(trans = "log10") +
-  scale_color_manual(values = c("darkgreen", "darkblue", "darkred")) +
+  scale_color_manual(values = c("darkgrey", "darkgreen", "darkblue", "darkred")) +
   labs(title = "", subtitle = "",
        y = "Number of feature detected", x = "Total number of reads") +
-  theme_bw()
+  theme_classic()
 ggsave("../../figs/total_counts_num_detected_all_samples.pdf",
        height = 6, width = 7)
 
@@ -112,10 +112,20 @@ aframe$sample.id <- factor(aframe$sample.id, levels = (aframe$sample.id[ord]))
 aframe <- reshape2::melt(aframe, id.vars = colnames(meta))
 aframe$variable <- gsub("p__", "", fixed = T, aframe$variable)
 
-farben <- qualitative_hcl(length(top_hits) + 1, "Dark2")
+farben <- colorspace::qualitative_hcl(length(top_hits) + 1, "Dark2")
 farben[length(farben)] <- "grey"
 
 aframe$label <- paste(aframe$Object, aframe$Sampling.number)
+first <- meta$Sequencing.run == "first"
+second <- meta$Sequencing.run == "second"
+lvs <- c(paste(meta$Object[first],
+               meta$Sampling.number[first])[order(as.numeric(meta$Sampling.number[first]))],
+         paste(meta$Object[second],
+               meta$Sampling.number[second])[order(meta$Sampling.number[second])])
+aframe$label <- factor(aframe$label, levels = lvs)
+
+aframe$Institution[aframe$Collection == "RF"] <- "RF"
+aframe$Institution <- factor(aframe$Institution, levels = c("MfN", "SPK", "RF"))
 
 ggplot(aframe,
        aes(x = label, y = value, fill = variable)) + 
@@ -145,7 +155,7 @@ normalized <- t(t(counts_tmp[rows_ok, ])/colSums(counts_tmp[rows_ok, ]))
 normalized <- sqrt(normalized)
 
 pca <- prcomp(t(normalized))
-var_explained <- signif(((pca$sdev/sum(pca$sdev))[1:2])*100, 2)
+var_explained <- signif(((pca$sdev/sum(pca$sdev))[1:2])*100, 3)
 aframe <- data.frame(pca$x,
                      tmp[colnames(normalized), ])
 
@@ -211,14 +221,14 @@ ggsave(p, filename = "../../figs/heatmap_molluscs_fossils_touched.pdf",
 
 # MfN molluscs & fossils - Plot single ASV feature ####
 aframe <- data.frame(anno_col,
-                     cutibacterium = normalized["b919fb3f7804bb0ce8a9c9ba87c69b81",])
+                     cutibacterium = normalized["5b9edeb0a187d9a0ce1edf9c60bbb7b5",])
 
 ggplot(aframe, aes(touched, cutibacterium, color = touched)) +
   facet_wrap(~ Collection) +
-  labs(y = "Relative abundance Cutibacterium") +
+  labs(y = "Relative abundance Corynebacterium") +
   geom_boxplot() + geom_point() +
   theme_classic()
-ggsave("../../figs/Cutibacterium_fossils_molluscs_touched.pdf",
+ggsave("../../figs/Corynebacterium_fossils_molluscs_touched.pdf",
        height = 5,
        width = 4)
 
@@ -233,6 +243,52 @@ ggplot(aframe, aes(touched, touch_signature, color = touched)) +
 ggsave("../../figs/Touch_signature_fossils_molluscs_touched.pdf",
        height = 5,
        width = 4)
+
+# Check if fingerprint is lost ####
+ok_samples <- rownames(aframe)[aframe$touched == "no"]
+counts_tmp <- counts[, ok_samples]
+zeros <- apply(counts_tmp, 1, function(x) sum(x > 0))
+rows_ok <- which(zeros >= 2)
+
+normalized <- t(t(counts_tmp[rows_ok, ])/colSums(counts_tmp[rows_ok, ]))
+normalized <- sqrt(normalized)
+
+res <- t(apply(normalized, 1, function(x){
+  aframe <- data.frame(expr = x, meta[colnames(normalized), c("Comments", "Object", "Collection")])
+  afit <- try(summary(lm(expr ~ Collection, data = aframe)))
+  if(class(afit) == "try-error") return(c(NA, NA))
+  coefficients(afit)[2, c(1, 4)]
+}))
+colnames(res) <- c("coef", "p_value")
+res <- data.frame(res, TAX@.Data[rownames(res),])
+res <- res[sort.list(res[, 2]),]
+res$p_adjusted <- p.adjust(res$p_value, method = "BH")
+
+res$label <- res$Genus
+res$label <- gsub("g__", "", fixed = T, res$label)
+
+res$Phylum <- gsub("p__", "", fixed = T, res$Phylum)
+
+res$label[11:nrow(res)] <- NA
+
+ggplot(res, aes(coef, -log10(p_value), label = label, color = Phylum)) +
+  geom_point() + ggrepel::geom_label_repel() +
+  labs(y = "-log10 p-value",
+       x = "Coefficient") +
+  theme_classic()
+
+plot_ASV <- function(asv){
+  aframe <- data.frame(expr = normalized[asv, ],
+                       meta[colnames(normalized), c("Comments", "Object", "Collection")])
+  
+  ggplot(aframe, aes(Collection, expr, color = Object)) +
+    labs(title = res[asv, ]$label,
+         y = "Relative abundance",
+         x = "Touched by") +
+    geom_boxplot() + geom_point() +
+    theme_classic()  
+}
+
 
 # Define functions ####
 get_subset <- function(samples){
@@ -366,18 +422,6 @@ p <- pheatmap(normalized[sig, order(anno_col$Height)],
 ggsave(p, filename = "../../figs/heatmap_height_profile.pdf",
        width = 9,
        height = 12)
-
-# SPK analysis - werkstatt vs exhibition ####
-ok <- meta[which(meta$Institution == "SPK" &
-                   meta$Sequencing.run == "second" &
-                   meta$Material == "Glazed Ceramic"), "sample.id"]
-run_pca(samples = ok, color = "Type.of.room", label = "Object")
-run_pca(samples = ok, color = "Touched", label = "Object")
-ok <- meta[which(meta$Institution == "SPK" &
-                   meta$Sequencing.run == "second" &
-                   meta$Material == "Glazed Ceramic" & 
-                   is.na(meta$Comments)), "sample.id"]
-run_pca(samples = ok, color = "Type.of.room", label = "Object")
 
 # SPK analysis - blue vs yellow tiles ####
 ok <- meta[which(meta$Institution == "SPK" &
@@ -533,3 +577,27 @@ p2 <- plot_ASV(asv = "f13e5db13ee4930ce7fd9d44939141b9")
 p <- grid.arrange(p0, p1, p2, nrow = 1, layout_matrix = lay)
 ggsave(p, filename = "../../figs/example_differential_sts_vs_rrp.pdf",
        height = 8, width = 16)
+
+# SPK analysis - WIP ####
+ok <- meta[which(meta$Institution == "SPK" &
+                   meta$Sequencing.run == "second" &
+                   meta$Material == "Glazed Ceramic"), "sample.id"]
+run_pca(samples = ok, color = "Type.of.room", label = "Object")
+run_pca(samples = ok, color = "Touched", label = "Object")
+ok <- meta[which(meta$Institution == "SPK" &
+                   meta$Sequencing.run == "second" &
+                   meta$Material == "Glazed Ceramic"), "sample.id"]
+ok <- ok[setdiff(1:length(ok),
+                 which(meta[ok, "Comments"] %in% c("StS", "RRP")))]
+run_pca(samples = ok, color = "Type.of.room", label = "Spot")
+run_pca(samples = ok, color = "touch_signature", label = "Spot")
+
+ok <- meta[which(meta$Institution == "SPK" &
+                   meta$Sequencing.run == "first" &
+                   meta$Object == "Zeus Sosipolis Tempel, Hellenistic Hall"), "sample.id"]
+
+aframe_tmp <- get_subset(samples = ok)[[1]]
+ggplot(aframe_tmp, aes(Spot, touch_signature, color = Touched)) +
+  labs(title = "Zeus Sosipolis Tempel") +
+  geom_boxplot() + geom_point() +
+  theme_classic()
