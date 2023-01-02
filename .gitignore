@@ -4,6 +4,9 @@
 *.pptx
 *.mp4
 *.qzv
-figs/
+misc/*
+*.ai
+*.jpg
+figs/*
 *.pdf
 *.xlsx
