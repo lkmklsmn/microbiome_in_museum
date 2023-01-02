@@ -4,9 +4,9 @@
 *.pptx
 *.mp4
 *.qzv
-misc/Simon_Simon_Flocco_Poster_ArtBioMatters.pdf
+misc/*
 *.ai
 *.jpg
-figs/ready/Lounsbery_manuscript.docx
+figs/*
 *.pdf
 *.xlsx
