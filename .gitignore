@@ -10,3 +10,11 @@ misc/Simon_Simon_Flocco_Poster_ArtBioMatters.pdf
 figs/ready/Lounsbery_manuscript.docx
 *.pdf
 *.xlsx
+data/multiqc_report_seq_1.html
+data/multiqc_report_seq_1.html
+data/otu_table_psn_v35.txt
+data/v13_map_uniquebyPSN.txt
+data/v35_map_uniquebyPSN.txt
+data/multiqc_report_seq_1.html
+data/multiqc_report_seq_2.html
+data/Lounsbery_ready_for_sourcetracker.RData

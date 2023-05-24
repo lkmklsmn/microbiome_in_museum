@@ -176,6 +176,24 @@ ggsave("../../figs/molluscs_fossils_pca.pdf",
        width = 5)
 
 # Run DE - touched vs untouched molluscs & fossils ####
+library(DESeq2)
+aframe$touched <- !is.na(aframe$Touched)
+des <- DESeqDataSetFromMatrix(counts_tmp[rowSums(counts_tmp) > 0, ] + 1,
+                              colData = aframe,
+                              design = ~ Collection + touched)
+des <- DESeq(des)
+res <- results(des)
+res <- res[sort.list(res$pvalue), ]
+aframe <- data.frame(res, TAX[rownames(res), ])
+
+ggplot(aframe, aes(log2FoldChange, -log10(pvalue),
+                   color = Genus == "g__Corynebacterium")) +
+  geom_point() +
+  theme_classic()
+
+res_deseq <- res
+
+# Run DE - touched vs untouched molluscs & fossils ####
 res <- t(apply(normalized, 1, function(x){
   aframe <- data.frame(expr = x, meta[colnames(normalized), c("Comments", "Object", "Collection")])
   aframe$touched <-"yes"
@@ -218,6 +236,22 @@ p <- pheatmap(normalized[sig, order(anno_col$Collection, anno_col$touched, anno_
 ggsave(p, filename = "../../figs/heatmap_molluscs_fossils_touched.pdf",
        width = 9,
        height = 12)
+
+# Compare DESeq2 vs differential abundance ####
+ok <- intersect(rownames(res_deseq),
+                rownames(res))
+aframe <- data.frame(res[ok,], res_deseq[ok,])
+ggplot(aframe, aes(coef, log2FoldChange)) +
+  labs(y = "Log2 fold change [DESeq2]",
+       x = "Differential abundance coefficient") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_point() +
+  ggpubr::stat_cor() +
+  theme_classic()
+ggsave(filename = "../../figs/diff_abundance_vs_deseq2.pdf",
+       width = 8,
+       height = 8)
 
 # MfN molluscs & fossils - Plot single ASV feature ####
 aframe <- data.frame(anno_col,
@@ -288,7 +322,6 @@ plot_ASV <- function(asv){
     geom_boxplot() + geom_point() +
     theme_classic()  
 }
-
 
 # Define functions ####
 get_subset <- function(samples){

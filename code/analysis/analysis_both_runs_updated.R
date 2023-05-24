@@ -11,16 +11,29 @@ library(colorspace)
 #setwd("/Users/lukas/OneDrive/Documents/GitHub/lounsbery/")
 # Load data ####
 load("../../data/Touched_DADA2_objects_2022-07-28.RData")
-
-# Plot total counts ####
-ggplot(metadata, aes(sample_id, Seq_depth, color = Sequencing_run)) +
-  geom_point() + 
-  scale_y_continuous(trans = "log10") +
-  theme_bw()
-
 counts <- data.matrix(seqtab.final[, rownames(metadata)])
 rownames(counts) <- seqtab.final$Sequence
 
+# Plot total counts ####
+tmp <- metadata
+lvs <- tmp$sample_id[order(tmp$Sequencing_run, tmp$Institution, tmp$Collection, -tmp$Seq_depth)]
+tmp$sample_id <- factor(tmp$sample_id, levels = lvs)
+ggplot(tmp, aes(sample_id, Seq_depth, color = Sequencing_run)) +
+  facet_wrap(~ Sequencing_run ~ Institution ~ Collection, scales = "free_x", nrow = 1) +
+  geom_point() + 
+  scale_y_continuous(trans = "log10") +
+  theme_bw() + theme(axis.text.x = element_blank())
+
+tmp$detected <- apply(counts, 2, function(x) sum(x > 0))
+ggplot(tmp, aes(Seq_depth, detected, color = Sequencing_run, shape = Institution)) +
+  geom_point() + 
+  labs(x = "Total reads",
+       y = "Number of ASVs detected") +
+  scale_x_continuous(trans = "log10") +
+  scale_y_continuous(trans = "log10") +
+  theme_bw()
+
+# Plot PCA of all samples ####
 tmp <- counts[, colSums(counts) > 0]
 tmp <- tmp[which(apply(tmp, 1, var) > 0), ]
 normalized <- t(t(tmp)/colSums(tmp))
@@ -404,6 +417,19 @@ pheatmap(normalized[sig, order(anno_col$Height)],
          annotation_col = anno_col[, c("Height", "Object", "Spot")],
          color = colorRampPalette(c("grey", "red"))(101),
          annotation_row = anno_row[, c("Phylum", "Genus")])
+
+
+# SPK analysis - Gate lions (both runs) ####
+ok <- metadata[which(metadata$Institution == "SPK" &
+                       metadata$Object %in% c("Gate Lion left Sam'al", "Gate Lion right Sam'al") &
+                       metadata$Sequencing_run == "first"),
+                "sample_id"]
+aframe_tmp <- get_subset(samples = ok)
+
+ggplot(aframe_tmp, aes(PC1, PC2, color = Object, label = Comments)) +
+  facet_wrap(~ Sequencing_run, scales = "free", nrow = 2) +
+  geom_point() + geom_label() +
+  theme_classic()
 
 # SPK analysis -  Glazed Ceramic vs Stone ####
 ok <- meta[which(meta$Institution == "SPK" &
